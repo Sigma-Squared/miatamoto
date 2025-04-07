@@ -1,3 +1,5 @@
+#ifndef MARQUEE_H
+#define MARQUEE_H
 template <uint8_t CUTOFF, uint8_t EDGESTALL, uint8_t MAX = 128>
 class MarqueeText
 {
@@ -43,3 +45,4 @@ public:
         }
     }
 };
+#endif

@@ -4,6 +4,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <marquee.h>
+#include <rotary.h>
 #define DEBUG true
 #include <DEBUG.h>
 
@@ -100,39 +101,54 @@ void task_shift_text(void *_)
     }
 }
 
-void setup()
+void setup_display()
 {
-    DEBUG_BEGIN(115200);
+    oledI2C.begin(18, 19);
+    if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+    {
+        display.setTextWrap(false);
+
+        // splash screen
+        display.clearDisplay();
+        display.setTextColor(SSD1306_WHITE);
+        display.setTextSize(2);
+        display.setCursor(64 - FONT_WIDTH * 9, 16 - FONT_HEIGHT / 2);
+        display.println("miatamoto");
+        display.display();
+
+        xTaskCreate(task_shift_text, "shift_text", 2048, NULL, 1, NULL);
+    }
+    else
+    {
+        DEBUG_PRINTLN(F("SSD1306 allocation failed"));
+    }
+}
+
+void setup_a2dpsink()
+{
     auto cfg = i2s.defaultConfig();
     cfg.pin_bck = 14;
     cfg.pin_ws = 15;
     cfg.pin_data = 22;
     i2s.begin(cfg);
 
-    a2dp_sink.set_avrc_metadata_attribute_mask(ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | ESP_AVRC_MD_ATTR_PLAYING_TIME);
+    a2dp_sink.start("miatamoto", true);
+    a2dp_sink.set_avrc_metadata_attribute_mask(ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM
+#if ENABLE_PROGRESS_BAR
+                                               | ESP_AVRC_MD_ATTR_PLAYING_TIME
+#endif
+    );
     a2dp_sink.set_avrc_metadata_callback(avrc_metadata_callback);
-
-    a2dp_sink.start("miatamoto");
     DEBUG_PRINTLN("Started A2DP sink.");
+}
 
-    oledI2C.begin(18, 19);
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-    {
-        DEBUG_PRINTLN(F("SSD1306 allocation failed"));
-        for (;;)
-            ; // Don't proceed, loop forever
-    }
-    display.setTextWrap(false);
+void setup()
+{
+    DEBUG_BEGIN(115200);
 
-    // splash screen
-    display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(2);
-    display.setCursor(64 - FONT_WIDTH * 9, 16 - FONT_HEIGHT / 2);
-    display.println("miatamoto");
-    display.display();
-
-    xTaskCreate(task_shift_text, "shift_text", 2048, NULL, 1, NULL);
+    setup_display();
+    // setup_encoder();
+    setup_a2dpsink();
 }
 
 void loop()
