@@ -1,13 +1,15 @@
-#ifndef _BUTTONS_H
-#define _BUTTONS_H
+#ifndef BUTTONS_H
+#define BUTTONS_H
 #include <Arduino.h>
-#include <DEBUG.h>
 #include <BluetoothA2DPSink.h>
 
-constexpr uint8_t BTN_PLAY_PAUSE_PIN = 4;
-constexpr uint8_t BTN_PREV_PIN = 16;
-constexpr uint8_t BTN_NEXT_PIN = 17;
-constexpr uint8_t BTN_ON_OFF_PIN = 5;
+#include <DEBUG.h>
+#include <globals.h>
+
+constexpr uint8_t BTN_PLAY_PAUSE_PIN = 32;
+constexpr uint8_t BTN_PREV_PIN = 33;
+constexpr uint8_t BTN_NEXT_PIN = 25;
+constexpr uint8_t BTN_ON_OFF_PIN = 26;
 constexpr uint8_t MEDIA_ENABLED_PIN = 21;
 
 enum Buttons : uint8_t
@@ -19,12 +21,11 @@ enum Buttons : uint8_t
     BTN_COUNT
 };
 
-constexpr unsigned long DEBOUNCE_TIME = 1000; // milliseconds
+constexpr unsigned long DEBOUNCE_TIME = 150; // milliseconds
 
 volatile bool btn_flags[BTN_COUNT]{};
 unsigned long btn_last_time[BTN_COUNT]{};
 bool media_paused = false;
-bool media_enabled = true;
 
 void IRAM_ATTR on_play_pause() { btn_flags[BTN_PLAY_PAUSE] = true; }
 void IRAM_ATTR on_prev() { btn_flags[BTN_PREV] = true; }
@@ -45,7 +46,7 @@ void setup_buttons()
     digitalWrite(MEDIA_ENABLED_PIN, media_enabled);
 }
 
-void button_loop(BluetoothA2DPSink *const a2dp_sink)
+void button_loop()
 {
     for (uint8_t i = 0; i < BTN_COUNT; i++)
     {
@@ -76,8 +77,13 @@ void button_loop(BluetoothA2DPSink *const a2dp_sink)
                     break;
                 case BTN_ON_OFF:
                     DEBUG_PRINTLN("On/Off button pressed");
-                    // media_enabled = !media_enabled;
-                    // digitalWrite(MEDIA_ENABLED_PIN, media_enabled);
+                    media_enabled = !media_enabled;
+                    digitalWrite(MEDIA_ENABLED_PIN, media_enabled);
+                    if (!media_enabled)
+                    {
+                        display_large("AMP OFF");
+                    }
+
                     break;
                 }
             }
