@@ -3,17 +3,18 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Preferences.h>
 #include <marquee.h>
 #include <rotary.h>
 #define DEBUG true
 #include <DEBUG.h>
 #include <buttons.h>
 
-#define CHARLIM 11
-#define DATALIM 100
-#define EDGE_STALL 5
-#define FONT_WIDTH 6
-#define FONT_HEIGHT 8
+constexpr uint8_t CHARLIM = 11;
+constexpr uint8_t DATALIM = 100;
+constexpr uint8_t EDGE_STALL = 5;
+constexpr uint8_t FONT_WIDTH = 6;
+constexpr uint8_t FONT_HEIGHT = 8;
 #define ENABLE_PROGRESS_BAR 0
 
 I2SStream i2s;
@@ -21,6 +22,8 @@ BluetoothA2DPSink a2dp_sink(i2s);
 
 TwoWire oledI2C = TwoWire(1);
 Adafruit_SSD1306 display(128, 32, &oledI2C, -1);
+
+Preferences preferences;
 
 struct AVRCMetadata
 {
@@ -102,6 +105,16 @@ void task_shift_text(void *_)
     }
 }
 
+void display_large(const char *text)
+{
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(2);
+    display.setCursor(64 - FONT_WIDTH * strlen(text), 16 - FONT_HEIGHT / 2);
+    display.println(text);
+    display.display();
+}
+
 void setup_display()
 {
     oledI2C.begin(18, 19);
@@ -110,18 +123,42 @@ void setup_display()
         display.setTextWrap(false);
 
         // splash screen
-        display.clearDisplay();
-        display.setTextColor(SSD1306_WHITE);
-        display.setTextSize(2);
-        display.setCursor(64 - FONT_WIDTH * 9, 16 - FONT_HEIGHT / 2);
-        display.println("miatamoto");
-        display.display();
+        display_large("miatamoto");
 
         xTaskCreate(task_shift_text, "shift_text", 2048, NULL, 1, NULL);
     }
     else
     {
         DEBUG_PRINTLN(F("SSD1306 allocation failed"));
+    }
+}
+
+void on_connection_state_changed(esp_a2d_connection_state_t state, void *obj)
+{
+    DEBUG_PRINTF("A2DP connection state: %s\n", a2dp_sink.to_str(state));
+    switch (state)
+    {
+    case ESP_A2D_CONNECTION_STATE_CONNECTING:
+        display_large("connecting");
+        break;
+    case ESP_A2D_CONNECTION_STATE_CONNECTED:
+        char display_text[10] = {0};
+        auto peer_name = a2dp_sink.get_peer_name();
+        if (strlen(peer_name) > 0)
+        {
+            DEBUG_PRINTF("Connected to peer: %s", peer_name);
+            snprintf(display_text, sizeof(display_text), ">%s", peer_name);
+        }
+        else
+        {
+            auto peer_addr = a2dp_sink.get_current_peer_address();
+            auto peer_addr_str = a2dp_sink.to_str(*peer_addr);
+            DEBUG_PRINTF("Connected to peer: %s", peer_addr_str);
+            snprintf(display_text, sizeof(display_text), ">%s", peer_addr_str);
+        }
+        display_large(display_text);
+        a2dp_sink.play();
+        break;
     }
 }
 
@@ -132,14 +169,20 @@ void setup_a2dpsink()
     cfg.pin_ws = 15;
     cfg.pin_data = 22;
     i2s.begin(cfg);
-
+    a2dp_sink.set_auto_reconnect(true, 10);
     a2dp_sink.start("miatamoto", true);
+    a2dp_sink.set_volume(127);
     a2dp_sink.set_avrc_metadata_attribute_mask(ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM
 #if ENABLE_PROGRESS_BAR
                                                | ESP_AVRC_MD_ATTR_PLAYING_TIME
 #endif
     );
     a2dp_sink.set_avrc_metadata_callback(avrc_metadata_callback);
+    a2dp_sink.set_on_connection_state_changed(on_connection_state_changed);
+    // a2dp_sink.set_on_audio_state_changed();
+    // a2dp_sink.get_audio_state();
+    // a2dp_sink.get_current_peer_address();
+    // a2dp_sink.get_peer_name
     DEBUG_PRINTLN("Started A2DP sink.");
 }
 
