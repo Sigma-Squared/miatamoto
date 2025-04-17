@@ -7,6 +7,7 @@
 #include <rotary.h>
 #define DEBUG true
 #include <DEBUG.h>
+#include <buttons.h>
 
 #define CHARLIM 11
 #define DATALIM 100
@@ -149,8 +150,10 @@ void setup()
     setup_display();
     // setup_encoder();
     setup_a2dpsink();
+    setup_buttons();
 }
 
 void loop()
 {
+    button_loop(&a2dp_sink);
 }
