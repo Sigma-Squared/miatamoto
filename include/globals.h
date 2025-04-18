@@ -20,6 +20,7 @@ constexpr uint8_t EDGE_STALL = 5;
 
 bool splash = true;
 bool media_enabled = true;
+bool media_paused = true;
 
 struct AVRCMetadata
 {
