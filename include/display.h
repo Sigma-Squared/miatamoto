@@ -8,8 +8,8 @@
 #include <globals.h>
 
 constexpr uint8_t DATALIM = 100;
-constexpr uint8_t FONT_WIDTH = 6;
-constexpr uint8_t FONT_HEIGHT = 8;
+constexpr uint8_t FONT_WIDTH = 3;
+constexpr uint8_t FONT_HEIGHT = 4;
 
 void render()
 {
@@ -51,6 +51,16 @@ void display_large(const char *text)
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
     display.setTextSize(2);
+    display.setCursor(64 - (FONT_WIDTH * 2) * strlen(text), 16 - (FONT_HEIGHT * 2) / 2);
+    display.println(text);
+    display.display();
+}
+
+void display_small(const char *text)
+{
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
     display.setCursor(64 - FONT_WIDTH * strlen(text), 16 - FONT_HEIGHT / 2);
     display.println(text);
     display.display();

@@ -6,9 +6,11 @@
 #include <DEBUG.h>
 #include <globals.h>
 
-constexpr uint8_t MEDIA_ENABLED_PIN = 21; // GPIO pin for media enabled
+constexpr uint8_t LIGHT_BRIGHTNESS = 127; // 0-255, 0 = off, 255 = full brightness
 
 constexpr unsigned long DEBOUNCE_TIME = 350; // milliseconds
+
+bool lights_enabled = false;
 
 enum Buttons : uint8_t
 {
@@ -16,16 +18,10 @@ enum Buttons : uint8_t
     BTN_PREV,
     BTN_NEXT,
     BTN_ON_OFF,
+    BTN_MISC,
     BTN_COUNT
 };
 // in buttons.h (or above loop in .ino)
-
-constexpr uint8_t BUTTON_PINS[] = {
-    32, // BTN_PLAY_PAUSE
-    33, // BTN_PREV
-    25, // BTN_NEXT
-    26  // BTN_ON_OFF
-};
 
 volatile bool btn_flags[BTN_COUNT] = {false};
 unsigned long btn_last_time[BTN_COUNT] = {0};
@@ -34,6 +30,7 @@ void IRAM_ATTR isr_play_pause() { btn_flags[BTN_PLAY_PAUSE] = true; }
 void IRAM_ATTR isr_prev() { btn_flags[BTN_PREV] = true; }
 void IRAM_ATTR isr_next() { btn_flags[BTN_NEXT] = true; }
 void IRAM_ATTR isr_on_off() { btn_flags[BTN_ON_OFF] = true; }
+void IRAM_ATTR isr_misc() { btn_flags[BTN_MISC] = true; }
 
 void setup_buttons()
 {
@@ -43,8 +40,13 @@ void setup_buttons()
     attachInterrupt(digitalPinToInterrupt(BUTTON_PINS[BTN_PREV]), isr_prev, FALLING);
     attachInterrupt(digitalPinToInterrupt(BUTTON_PINS[BTN_NEXT]), isr_next, FALLING);
     attachInterrupt(digitalPinToInterrupt(BUTTON_PINS[BTN_ON_OFF]), isr_on_off, FALLING);
-    pinMode(MEDIA_ENABLED_PIN, OUTPUT);
-    digitalWrite(MEDIA_ENABLED_PIN, media_enabled);
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PINS[BTN_MISC]), isr_misc, FALLING);
+    pinMode(MEDIA_ENABLED_PIN_BAR, OUTPUT);
+    pinMode(LIGHTS_ENABLED_PIN, OUTPUT);
+    digitalWrite(MEDIA_ENABLED_PIN_BAR, !media_enabled);
+    // analogWrite(LIGHTS_ENABLED_PIN, lights_enabled ? LIGHT_BRIGHTNESS : 0);
+    ledcSetup(0, 1000, 8);
+    ledcAttachPin(LIGHTS_ENABLED_PIN, 0);
 }
 
 // then in loop(), exactly the same debounce/run logic you already have:
@@ -86,10 +88,16 @@ void button_loop()
             break;
         case BTN_ON_OFF:
             media_enabled = !media_enabled;
-            digitalWrite(MEDIA_ENABLED_PIN, media_enabled);
+            digitalWrite(MEDIA_ENABLED_PIN_BAR, !media_enabled);
             if (!media_enabled)
                 display_large("AMP OFF");
             DEBUG_PRINTLN("On/Off button pressed");
+            break;
+        case BTN_MISC:
+            lights_enabled = !lights_enabled;
+            // analogWrite(LIGHTS_ENABLED_PIN, lights_enabled ? LIGHT_BRIGHTNESS : 0);
+            ledcWrite(0, lights_enabled ? LIGHT_BRIGHTNESS : 0);
+            DEBUG_PRINTLN("Light button pressed");
             break;
         }
     }

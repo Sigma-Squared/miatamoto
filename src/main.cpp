@@ -11,6 +11,12 @@ void setup()
     setup_display();
     setup_a2dpsink();
     setup_buttons();
+
+#if DEBUG
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    Serial.printf("ESP32 revision %d\n", chip_info.revision);
+#endif
 }
 
 void loop()

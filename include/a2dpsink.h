@@ -3,6 +3,7 @@
 
 #include <DEBUG.h>
 #include <globals.h>
+#include <driver/gpio.h>
 
 #define ENABLE_PROGRESS_BAR 0
 
@@ -10,6 +11,8 @@ void avrc_metadata_callback(uint8_t type, const uint8_t *payload)
 {
     DEBUG_PRINTF("AVRC metadata rsp: attribute id 0x%x, %s\n", type, payload);
     const char *payload_str = (const char *)payload;
+    if (strlen(payload_str) == 0)
+        return;
     splash = false;
 
     switch (type)
@@ -43,24 +46,24 @@ void on_connection_state_changed(esp_a2d_connection_state_t state, void *obj)
     switch (state)
     {
     case ESP_A2D_CONNECTION_STATE_CONNECTING:
-        display_large("connecting");
+        display_small("connecting...");
         break;
     case ESP_A2D_CONNECTION_STATE_CONNECTED:
-        char display_text[10] = {0};
+        char display_text[20] = {0};
         auto peer_name = a2dp_sink.get_peer_name();
         if (strlen(peer_name) > 0)
         {
             DEBUG_PRINTF("Connected to peer: %s", peer_name);
-            snprintf(display_text, sizeof(display_text), ">%s", peer_name);
+            snprintf(display_text, 10, ">>%s", peer_name);
         }
         else
         {
             auto peer_addr = a2dp_sink.get_current_peer_address();
             auto peer_addr_str = a2dp_sink.to_str(*peer_addr);
             DEBUG_PRINTF("Connected to peer: %s", peer_addr_str);
-            snprintf(display_text, sizeof(display_text), ">%s", peer_addr_str);
+            snprintf(display_text, 20, ">>%s", peer_addr_str);
         }
-        display_large(display_text);
+        display_small(display_text);
         a2dp_sink.play();
         break;
     }
@@ -69,10 +72,32 @@ void on_connection_state_changed(esp_a2d_connection_state_t state, void *obj)
 void setup_a2dpsink()
 {
     auto cfg = i2s.defaultConfig();
-    cfg.pin_bck = 14;
-    cfg.pin_ws = 15;
+    cfg.pin_bck = 14; // 14;
+    cfg.pin_ws = 15;  // 15;
     cfg.pin_data = 22;
+
+    // cfg.pin_mck = 0;m
+    // cfg.use_apll = true;
+    pinMode(0, OUTPUT);
+    digitalWrite(0, LOW);
+
+    // cfg.sample_rate = 44100;
+    // cfg.bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT;
+    // cfg.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
+
+    // cfg.buffer_count = 8;
+    // cfg.buffer_size = 512;
     i2s.begin(cfg);
+
+    // isolate BT tasks off core0 so they don’t contend with I2S IRQ
+    // a2dp_sink.set_task_priority(configMAX_PRIORITIES - 2);
+    // a2dp_sink.set_task_core(0);
+    // a2dp_sink.set_event_queue_size(12);
+
+#if DEBUG
+    a2dp_sink.set_sample_rate_callback([](uint16_t rate)
+                                       { DEBUG_PRINTF("Sample rate: %d\n", rate); });
+#endif
     a2dp_sink.set_auto_reconnect(true, 10);
     a2dp_sink.start("miatamoto", true);
     a2dp_sink.set_volume(127);
