@@ -68,7 +68,7 @@ void display_small(const char *text)
 
 void setup_display()
 {
-    oledI2C.begin(18, 19);
+    oledI2C.begin(DISPLAY_SDA, DISPLAY_SCL);
     if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
     {
         display.setTextWrap(false);

@@ -5,7 +5,8 @@
 #include <globals.h>
 #include <driver/gpio.h>
 
-#define ENABLE_PROGRESS_BAR 0
+constexpr bool ENABLE_PROGRESS_BAR = false;
+constexpr bool USE_MCK = false; // set to true if using MCK pin for I2S
 
 void avrc_metadata_callback(uint8_t type, const uint8_t *payload)
 {
@@ -26,12 +27,12 @@ void avrc_metadata_callback(uint8_t type, const uint8_t *payload)
     case ESP_AVRC_MD_ATTR_ALBUM:
         meta.album_marquee.set(payload_str);
         break;
-#if ENABLE_PROGRESS_BAR
     case ESP_AVRC_MD_ATTR_PLAYING_TIME:
+        if (!ENABLE_PROGRESS_BAR)
+            break;
         meta.playtime_ms = String(payload_str).toInt();
         meta.play_start = millis();
         break;
-#endif
     }
     global_marquee_clock = 0;
     meta.title_marquee.marquee_step();
@@ -72,46 +73,33 @@ void on_connection_state_changed(esp_a2d_connection_state_t state, void *obj)
 void setup_a2dpsink()
 {
     auto cfg = i2s.defaultConfig();
-    cfg.pin_bck = 14; // 14;
-    cfg.pin_ws = 15;  // 15;
-    cfg.pin_data = 22;
-
-    // cfg.pin_mck = 0;m
-    // cfg.use_apll = true;
-    pinMode(0, OUTPUT);
-    digitalWrite(0, LOW);
-
-    // cfg.sample_rate = 44100;
-    // cfg.bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT;
-    // cfg.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
-
-    // cfg.buffer_count = 8;
-    // cfg.buffer_size = 512;
+    cfg.pin_bck = I2S_BCK;
+    cfg.pin_ws = I2S_WS_LRCK;
+    cfg.pin_data = I2S_DATA_DIN;
+    if (USE_MCK)
+    {
+        cfg.pin_mck = I2S_MCK;
+        cfg.use_apll = true;
+    }
+    else
+    {
+        pinMode(I2S_MCK, OUTPUT);
+        digitalWrite(I2S_MCK, LOW);
+    }
     i2s.begin(cfg);
-
-    // isolate BT tasks off core0 so they don’t contend with I2S IRQ
-    // a2dp_sink.set_task_priority(configMAX_PRIORITIES - 2);
-    // a2dp_sink.set_task_core(0);
-    // a2dp_sink.set_event_queue_size(12);
 
 #if DEBUG
     a2dp_sink.set_sample_rate_callback([](uint16_t rate)
                                        { DEBUG_PRINTF("Sample rate: %d\n", rate); });
 #endif
     a2dp_sink.set_auto_reconnect(true, 10);
-    a2dp_sink.start("miatamoto", true);
+    char bt_name[13] = {0};
+    sprintf(bt_name, "miatamoto %02x", esp_mac[5]);
+    a2dp_sink.start(bt_name, true);
     a2dp_sink.set_volume(127);
-    a2dp_sink.set_avrc_metadata_attribute_mask(ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM
-#if ENABLE_PROGRESS_BAR
-                                               | ESP_AVRC_MD_ATTR_PLAYING_TIME
-#endif
-    );
+    a2dp_sink.set_avrc_metadata_attribute_mask(ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | (ENABLE_PROGRESS_BAR ? ESP_AVRC_MD_ATTR_PLAYING_TIME : 0));
     a2dp_sink.set_avrc_metadata_callback(avrc_metadata_callback);
     a2dp_sink.set_on_connection_state_changed(on_connection_state_changed);
-    // a2dp_sink.set_on_audio_state_changed();
-    // a2dp_sink.get_audio_state();
-    // a2dp_sink.get_current_peer_address();
-    // a2dp_sink.get_peer_name
     DEBUG_PRINTLN("Started A2DP sink.");
 }
 
