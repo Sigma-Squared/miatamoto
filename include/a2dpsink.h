@@ -6,7 +6,8 @@
 #include <driver/gpio.h>
 
 constexpr bool ENABLE_PROGRESS_BAR = false;
-constexpr bool USE_MCK = false; // set to true if using MCK pin for I2S
+constexpr bool USE_MCK = false;           // set to true if using MCK pin for I2S
+constexpr long ONSTART_PLAY_DELAY = 1500; // delay before starting playback after connection
 
 void avrc_metadata_callback(uint8_t type, const uint8_t *payload)
 {
@@ -41,6 +42,14 @@ void avrc_metadata_callback(uint8_t type, const uint8_t *payload)
     render();
 }
 
+void task_delay_play(void *_)
+{
+    vTaskDelay(ONSTART_PLAY_DELAY / portTICK_PERIOD_MS);
+    a2dp_sink.play();
+    media_paused = false;
+    vTaskDelete(NULL);
+}
+
 void on_connection_state_changed(esp_a2d_connection_state_t state, void *obj)
 {
     DEBUG_PRINTF("A2DP connection state: %s\n", a2dp_sink.to_str(state));
@@ -65,7 +74,7 @@ void on_connection_state_changed(esp_a2d_connection_state_t state, void *obj)
             snprintf(display_text, 20, ">>%s", peer_addr_str);
         }
         display_small(display_text);
-        a2dp_sink.play();
+        xTaskCreate(task_delay_play, "play_task", 1024, NULL, 1, NULL);
         break;
     }
 }
