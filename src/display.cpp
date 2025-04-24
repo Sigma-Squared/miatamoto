@@ -82,14 +82,22 @@ const uint8_t miata_idle_1_mask[] PROGMEM = {
 // 'exhaust', 16x7px
 const uint8_t miata_exhaust0[] PROGMEM = {
     0x00, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x1f, 0x3e, 0x1f, 0xf0, 0x1d, 0xe0, 0x00, 0x00};
-const unsigned char miata_exhaust1[] PROGMEM = {
+const uint8_t miata_exhaust1[] PROGMEM = {
     0x00, 0x00, 0x00, 0x00, 0x38, 0x00, 0x7f, 0x00, 0x3f, 0xf0, 0x03, 0x00, 0x00, 0x00};
-const unsigned char miata_exhaust2[] PROGMEM = {
+const uint8_t miata_exhaust2[] PROGMEM = {
     0x00, 0x00, 0x00, 0x00, 0x38, 0x00, 0x7c, 0x00, 0x3c, 0x00, 0x1f, 0x00, 0x00, 0x00};
-const unsigned char miata_exhaust3[] PROGMEM = {
+const uint8_t miata_exhaust3[] PROGMEM = {
     0x00, 0x00, 0x60, 0x00, 0xf0, 0x00, 0xf8, 0x00, 0x78, 0x00, 0x38, 0x00, 0x00, 0x00};
-const unsigned char miata_exhaust4[] PROGMEM = {
+const uint8_t miata_exhaust4[] PROGMEM = {
     0x60, 0x00, 0xe0, 0x00, 0xe0, 0x00, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+// 'bt_icons', 14x14px
+const uint8_t miata_bt_conn[] PROGMEM = {
+    0x03, 0x00, 0x03, 0x00, 0x33, 0xc0, 0x33, 0xc0, 0x0f, 0x30, 0x0f, 0x30, 0x03, 0xc0, 0x03, 0xc0,
+    0x0f, 0x30, 0x0f, 0x30, 0x33, 0xc0, 0x33, 0xc0, 0x03, 0x00, 0x03, 0x00};
+const uint8_t miata_bt_disconn[] PROGMEM = {
+    0xc3, 0x00, 0xc3, 0x00, 0x30, 0xc0, 0x30, 0xc0, 0x0c, 0x30, 0x0c, 0x30, 0x03, 0x00, 0x03, 0x00,
+    0x0f, 0xc0, 0x0f, 0xc0, 0x33, 0x30, 0x33, 0x30, 0x03, 0x0c, 0x03, 0x0c};
 
 const uint8_t *miata_idle_animation[] = {
     miata_idle_0,
@@ -112,10 +120,22 @@ const uint8_t *miata_exhaust_animation[] = {
 constexpr uint8_t IDLE_ANIMATION_FRAME_COUNT = sizeof(miata_idle_animation) / sizeof(miata_idle_animation[0]);
 constexpr uint8_t EXHAUST_ANIMATION_FRAME_COUNT = sizeof(miata_exhaust_animation) / sizeof(miata_exhaust_animation[0]);
 
+enum display_owner_t
+{
+    OWNER_MAIN,
+    OWNER_ANIMATION,
+    OWNER_PLAYING
+};
+display_owner_t display_owner = OWNER_MAIN;
 void task_playing(void *_)
 {
     for (;;)
     {
+        if (display_owner != OWNER_PLAYING) // no longer owning the display, terminate
+        {
+            DEBUG_PRINTLN("Playing task terminating");
+            vTaskDelete(NULL);
+        }
         global_marquee_clock++;
         meta.title_marquee.marquee_step();
         meta.artist_marquee.marquee_step();
@@ -141,22 +161,12 @@ void task_playing(void *_)
     }
 }
 
-void display_large(const char *text)
+void render_centered_text_2x(const char *text)
 {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
     display.setTextSize(2);
     display.setCursor(64 - (FONT_WIDTH * 2) * strlen(text), 16 - (FONT_HEIGHT * 2) / 2);
-    display.println(text);
-    display.display();
-}
-
-void display_small(const char *text)
-{
-    display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(64 - FONT_WIDTH * strlen(text), 16 - FONT_HEIGHT / 2);
     display.println(text);
     display.display();
 }
@@ -175,17 +185,25 @@ constexpr int16_t EXHAUST_OFFSET_Y = 23 - 9;
 
 bool splash_shown = false; // splash will only ever be shown once on startup
 
+animation_state_t animation_state = ANIMATION_BT_DISCONNECTED;
+
+bool animation_should_terminate = false;
 void task_idle_animation(void *_)
 {
     if (!splash_shown)
     {
-        display_large("miatamoto");
+        render_centered_text_2x("miatamoto");
         splash_shown = true;
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     constexpr uint8_t FRAME_DIVIDER = FRAMERATE / SPRITE_FRAMERATE;
     for (uint8_t frame = 0;; frame++)
     {
+        if (display_owner != OWNER_ANIMATION) // no longer owning the display, terminate
+        {
+            DEBUG_PRINTLN("Animation task terminating");
+            vTaskDelete(NULL);
+        }
         display.clearDisplay();
         for (int i = 0; i < NUM_LINES; i++)
         {
@@ -198,44 +216,62 @@ void task_idle_animation(void *_)
             }
             display.drawFastHLine(line_x[i], line_y[i], line_w[i], SSD1306_WHITE);
         }
-        display.drawBitmap(CAR_POS_X + MASK_OFFSET_X, CAR_POS_Y + MASK_OFFSET_Y, miata_idle_animation_mask[frame / FRAME_DIVIDER % IDLE_ANIMATION_FRAME_COUNT], 54, 19, SSD1306_BLACK);
-        display.drawBitmap(CAR_POS_X, CAR_POS_Y, miata_idle_animation[frame / FRAME_DIVIDER % IDLE_ANIMATION_FRAME_COUNT], 76, 23, SSD1306_WHITE);
-        uint exhaust_frame = frame / FRAME_DIVIDER % (EXHAUST_ANIMATION_FRAME_COUNT + 5); // 5 frames of no exhaust
+        uint8_t sprite_frame = frame / FRAME_DIVIDER;
+        display.drawBitmap(CAR_POS_X + MASK_OFFSET_X, CAR_POS_Y + MASK_OFFSET_Y, miata_idle_animation_mask[sprite_frame % IDLE_ANIMATION_FRAME_COUNT], 54, 19, SSD1306_BLACK);
+        display.drawBitmap(CAR_POS_X, CAR_POS_Y, miata_idle_animation[sprite_frame % IDLE_ANIMATION_FRAME_COUNT], 76, 23, SSD1306_WHITE);
+        uint exhaust_frame = sprite_frame % (EXHAUST_ANIMATION_FRAME_COUNT + 5); // 5 frames of no exhaust
         if (exhaust_frame < EXHAUST_ANIMATION_FRAME_COUNT)
         {
             display.drawBitmap(CAR_POS_X + EXHAUST_OFFSET_X, CAR_POS_Y + EXHAUST_OFFSET_Y, miata_exhaust_animation[exhaust_frame], 16, 7, SSD1306_WHITE);
         }
+        if (animation_state == ANIMATION_BT_CONNECTING_DISCONNECTING && sprite_frame % 2 == 0)
+        {
+            display.drawBitmap(0, 0, miata_bt_conn, 14, 14, SSD1306_WHITE);
+        }
+        else if (animation_state == ANIMATION_BT_CONNECTED)
+        {
+            display.drawBitmap(0, 0, miata_bt_conn, 14, 14, SSD1306_WHITE);
+        }
+        else if (animation_state == ANIMATION_BT_DISCONNECTED)
+        {
+            display.drawBitmap(0, 0, miata_bt_disconn, 14, 14, SSD1306_WHITE);
+        }
+
         display.display();
         vTaskDelay((1000 / FRAMERATE) / portTICK_PERIOD_MS);
     }
 }
 
-TaskHandle_t current_display_task = NULL;
 display_state_t prev_display_state = DISPLAY_NONE;
 
 void display_setstate(display_state_t state)
 {
+    DEBUG_PRINTF("Display state: %d, prev state: %d\n", state, prev_display_state);
     if (state == prev_display_state) // no change in state
         return;
-    // end any current display task
-    if (current_display_task != NULL)
-    {
-        vTaskDelete(current_display_task);
-        current_display_task = NULL;
-    }
     prev_display_state = state;
     switch (state)
     {
-    case DISPLAY_IDLE:
-        xTaskCreate(task_idle_animation, "task_idle_animation", 2048, NULL, 1, &current_display_task);
+    case DISPLAY_ANIMATION:
+        display_owner = OWNER_ANIMATION;
+        xTaskCreate(task_idle_animation, "task_idle_animation", 2048, NULL, 1, NULL);
         break;
     case DISPLAY_PLAYING:
-        xTaskCreate(task_playing, "task_playing", 2048, NULL, 1, &current_display_task);
+        display_owner = OWNER_PLAYING;
+        animation_should_terminate = true;
+        xTaskCreate(task_playing, "task_playing", 2048, NULL, 1, NULL);
         break;
     case DISPLAY_AMPOFF:
-        display_large("AMP OFF");
+        display_owner = OWNER_MAIN;
+        render_centered_text_2x("AMP OFF");
         break;
     }
+}
+
+void display_animation_setstate(animation_state_t state)
+{
+    DEBUG_PRINTF("Animation state: %d\n", state);
+    animation_state = state;
 }
 
 void setup_display()
@@ -245,7 +281,7 @@ void setup_display()
     if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
     {
         display.setTextWrap(false);
-        display_setstate(DISPLAY_IDLE);
+        display_setstate(DISPLAY_ANIMATION);
     }
     else
     {

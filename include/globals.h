@@ -1,7 +1,5 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
-#include <Arduino.h>
-#include "BluetoothA2DPSink.h"
 
 #include <marquee.h>
 
@@ -28,8 +26,7 @@ constexpr uint8_t BUTTON_PINS[] = {
 };
 
 // GLOBAL VARIABLES
-extern BluetoothA2DPSink a2dp_sink;
-
+extern bool media_enabled;
 extern bool media_paused;
 extern uint8_t esp_mac[6];
 
