@@ -90,7 +90,7 @@ void button_loop()
             media_enabled = !media_enabled;
             digitalWrite(MEDIA_ENABLED_PIN_BAR, !media_enabled);
             if (!media_enabled)
-                display_large("AMP OFF");
+                display_setstate(DISPLAY_AMPOFF);
             DEBUG_PRINTLN("On/Off button pressed");
             break;
         case BTN_MISC:

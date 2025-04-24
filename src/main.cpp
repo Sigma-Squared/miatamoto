@@ -1,8 +1,8 @@
 #define DEBUG true
 #include <DEBUG.h>
 #include <display.h>
-#include <a2dpsink.h>
-#include <buttons.h>
+// #include <a2dpsink.h>
+// #include <buttons.h>
 #include <static_asserts.h>
 
 void setup()
@@ -18,11 +18,11 @@ void setup()
 #endif
 
     setup_display();
-    setup_a2dpsink();
-    setup_buttons();
+    // setup_a2dpsink();
+    // setup_buttons();
 }
 
 void loop()
 {
-    button_loop();
+    // button_loop();
 }

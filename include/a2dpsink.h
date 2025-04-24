@@ -39,7 +39,7 @@ void avrc_metadata_callback(uint8_t type, const uint8_t *payload)
     meta.title_marquee.marquee_step();
     meta.artist_marquee.marquee_step();
     meta.album_marquee.marquee_step();
-    render();
+    display_setstate(DISPLAY_PLAYING);
 }
 
 void task_delay_play(void *_)
@@ -56,7 +56,7 @@ void on_connection_state_changed(esp_a2d_connection_state_t state, void *obj)
     switch (state)
     {
     case ESP_A2D_CONNECTION_STATE_CONNECTING:
-        display_small("connecting...");
+        // display_small("connecting...");
         break;
     case ESP_A2D_CONNECTION_STATE_CONNECTED:
         char display_text[20] = {0};
@@ -73,7 +73,7 @@ void on_connection_state_changed(esp_a2d_connection_state_t state, void *obj)
             DEBUG_PRINTF("Connected to peer: %s", peer_addr_str);
             snprintf(display_text, 20, ">>%s", peer_addr_str);
         }
-        display_small(display_text);
+        // display_small(display_text);
         xTaskCreate(task_delay_play, "play_task", 1024, NULL, 1, NULL);
         break;
     }
