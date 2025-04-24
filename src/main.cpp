@@ -3,6 +3,7 @@
 #include <display.h>
 #include <a2dpsink.h>
 #include <buttons.h>
+#include <static_asserts.h>
 
 void setup()
 {
@@ -18,10 +19,10 @@ void setup()
 
     setup_display();
     setup_a2dpsink();
-    // setup_buttons();
+    setup_buttons();
 }
 
 void loop()
 {
-    // button_loop();
+    button_loop();
 }

@@ -3,6 +3,8 @@
 template <uint8_t CUTOFF, uint8_t EDGESTALL, uint8_t MAX = 128>
 class MarqueeText
 {
+    static_assert(CUTOFF < MAX, "CUTOFF  must be less than MAX");
+
 private:
     char text[MAX];
     uint8_t text_len;
