@@ -11,9 +11,9 @@
 
 // ALL USED PINS
 // I2S A2DP
-constexpr uint8_t I2S_BCK = 14;
-constexpr uint8_t I2S_WS_LRCK = 15;
-constexpr uint8_t I2S_DATA_DIN = 22;
+constexpr uint8_t I2S_BCK = 12;
+constexpr uint8_t I2S_WS_LRCK = 14;
+constexpr uint8_t I2S_DATA_DIN = 27;
 constexpr uint8_t I2S_MCK = 0; // optional
 
 // I2S DISPLAY
@@ -21,8 +21,8 @@ constexpr uint8_t DISPLAY_SDA = 19;
 constexpr uint8_t DISPLAY_SCL = 18;
 
 // BUTTON CONTROLS
-constexpr uint8_t MEDIA_ENABLED_PIN_BAR = 2; // GPIO pin for media enabled MOSFET
-constexpr uint8_t LIGHTS_ENABLED_PIN = 13;   // GPIO pin light MOSFET
+constexpr uint8_t MEDIA_ENABLED_PIN_BAR = 13; // GPIO pin for media enabled MOSFET
+constexpr uint8_t LIGHTS_ENABLED_PIN = 2;     // GPIO pin light MOSFET
 constexpr uint8_t BUTTON_PINS[] = {
     15, // BTN_PLAY_PAUSE
     22, // BTN_PREV
