@@ -2,6 +2,7 @@
 #define GLOBALS_H
 
 #include <marquee.h>
+#include <observable.h>
 
 // ALL USED PINS
 // I2S A2DP
@@ -26,7 +27,7 @@ constexpr uint8_t BUTTON_PINS[] = {
 };
 
 // GLOBAL VARIABLES
-extern bool media_enabled;
+extern Observable<bool> media_enabled;
 extern bool media_paused;
 extern uint8_t esp_mac[6];
 

@@ -23,7 +23,7 @@ constexpr uint8_t SPRITE_FRAMERATE = 12;
 TwoWire oledI2C = TwoWire(1);
 Adafruit_SSD1306 display(128, 32, &oledI2C, -1);
 
-// '0px_sz', 76x24px (2x)
+// 'idle', 76x24px (2x)
 const uint8_t miata_idle_0_px[] PROGMEM = {
     0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0xc0, 0x00, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -77,6 +77,21 @@ const uint8_t miata_bt_disconn[] PROGMEM = {
     0xc3, 0x00, 0xc3, 0x00, 0x30, 0xc0, 0x30, 0xc0, 0x0c, 0x30, 0x0c, 0x30, 0x03, 0x00, 0x03, 0x00,
     0x0f, 0xc0, 0x0f, 0xc0, 0x33, 0x30, 0x33, 0x30, 0x03, 0x0c, 0x03, 0x0c};
 
+// 'mute_small', 14x14px (2x)
+const uint8_t miata_mute_small[] PROGMEM = {
+    0xc3, 0xc0, 0xc3, 0xc0, 0x30, 0xc0, 0x30, 0xc0, 0x3c, 0x00, 0x3c, 0x00, 0xff, 0x00, 0xff, 0x00,
+    0x3f, 0xc0, 0x3f, 0xc0, 0x0f, 0xf0, 0x0f, 0xf0, 0x03, 0xcc, 0x03, 0xcc};
+
+// 'mute', 26x26px (2x)
+const uint8_t miata_mute[] PROGMEM = {
+    0xc0, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x30, 0x00, 0xc0, 0x00, 0x30, 0x00, 0xc0, 0x00,
+    0x0c, 0x03, 0xc0, 0x00, 0x0c, 0x03, 0xc0, 0x00, 0x03, 0x0f, 0xc0, 0x00, 0x03, 0x0f, 0xc0, 0x00,
+    0x03, 0xc3, 0xc0, 0x00, 0x03, 0xc3, 0xc0, 0x00, 0x0f, 0xf0, 0xc0, 0x00, 0x0f, 0xf0, 0xc0, 0x00,
+    0x0f, 0xfc, 0x00, 0x00, 0x0f, 0xfc, 0x00, 0x00, 0x0f, 0xff, 0x00, 0x00, 0x0f, 0xff, 0x00, 0x00,
+    0x03, 0xff, 0xc0, 0x00, 0x03, 0xff, 0xc0, 0x00, 0x00, 0x0f, 0xf0, 0x00, 0x00, 0x0f, 0xf0, 0x00,
+    0x00, 0x03, 0xcc, 0x00, 0x00, 0x03, 0xcc, 0x00, 0x00, 0x00, 0xc3, 0x00, 0x00, 0x00, 0xc3, 0x00,
+    0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0xc0};
+
 const uint8_t *miata_idle_animation[] = {
     miata_idle_0_px,
     miata_idle_1_px,
@@ -95,26 +110,32 @@ constexpr uint8_t EXHAUST_ANIMATION_FRAME_COUNT = sizeof(miata_exhaust_animation
 
 enum display_owner_t
 {
-    OWNER_MAIN,
+    OWNER_NONE,
     OWNER_ANIMATION,
     OWNER_PLAYING
 };
-display_owner_t display_owner = OWNER_MAIN;
-void task_playing(void *_)
+display_owner_t display_owner = OWNER_NONE;
+
+void render_centered_text_2x(const char *text)
 {
-    for (;;)
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(2);
+    display.setCursor(64 - (FONT_WIDTH * 2) * strlen(text), 16 - (FONT_HEIGHT * 2) / 2);
+    display.println(text);
+    display.display();
+}
+
+void render_play_state()
+{
+    display.clearDisplay();
+    if (media_enabled.get()) // Song title, artist, album display
     {
-        if (display_owner != OWNER_PLAYING) // no longer owning the display, terminate
-        {
-            DEBUG_PRINTLN("Playing task terminating");
-            vTaskDelete(NULL);
-        }
         global_marquee_clock++;
         meta.title_marquee.marquee_step();
         meta.artist_marquee.marquee_step();
         meta.album_marquee.marquee_step();
 
-        display.clearDisplay();
         display.setTextColor(SSD1306_WHITE);
         display.setTextSize(2);
         display.setCursor(0, 0);
@@ -128,20 +149,26 @@ void task_playing(void *_)
             uint32_t progress = (elapsed * DISPLAY_WIDTH) / meta.playtime_ms;
             display.fillRect(0, 31, progress, 2, SSD1306_WHITE);
         }
-        display.display();
-
-        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
+    else // Mute icon
+    {
+        display.drawBitmap(DISPLAY_WIDTH / 2 - 26 / 2, DISPLAY_HEIGHT / 2 - 26 / 2, miata_mute, 26, 26, SSD1306_WHITE);
+    }
+    display.display();
 }
 
-void render_centered_text_2x(const char *text)
+void task_playing(void *_)
 {
-    display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(2);
-    display.setCursor(64 - (FONT_WIDTH * 2) * strlen(text), 16 - (FONT_HEIGHT * 2) / 2);
-    display.println(text);
-    display.display();
+    for (;;)
+    {
+        if (display_owner != OWNER_PLAYING) // no longer owning the display, terminate
+        {
+            DEBUG_PRINTLN("Playing task terminating");
+            vTaskDelete(NULL);
+        }
+        render_play_state();
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
 }
 
 constexpr uint8_t NUM_LINES = 5;
@@ -157,10 +184,7 @@ constexpr int16_t EXHAUST_OFFSET_X = 11 - 30;
 constexpr int16_t EXHAUST_OFFSET_Y = 23 - 9;
 
 bool splash_shown = false; // splash will only ever be shown once on startup
-
 animation_state_t animation_state = ANIMATION_BT_DISCONNECTED;
-
-bool animation_should_terminate = false;
 void task_idle_animation(void *_)
 {
     if (!splash_shown)
@@ -197,7 +221,7 @@ void task_idle_animation(void *_)
         {
             display.drawBitmap(CAR_POS_X + EXHAUST_OFFSET_X, CAR_POS_Y + EXHAUST_OFFSET_Y, miata_exhaust_animation[exhaust_frame], 16, 7, SSD1306_WHITE);
         }
-        if (animation_state == ANIMATION_BT_CONNECTING_DISCONNECTING && sprite_frame % 2 == 0)
+        if (animation_state == ANIMATION_BT_CONNECTING_DISCONNECTING && sprite_frame % 2 == 0) // flickering connection animation
         {
             display.drawBitmap(0, 0, miata_bt_conn, 14, 14, SSD1306_WHITE);
         }
@@ -209,20 +233,22 @@ void task_idle_animation(void *_)
         {
             display.drawBitmap(0, 0, miata_bt_disconn, 14, 14, SSD1306_WHITE);
         }
-
+        if (!media_enabled.get())
+        {
+            display.drawBitmap(0, DISPLAY_HEIGHT - 14, miata_mute_small, 14, 14, SSD1306_WHITE);
+        }
         display.display();
         vTaskDelay((1000 / FRAMERATE) / portTICK_PERIOD_MS);
     }
 }
 
-display_state_t prev_display_state = DISPLAY_NONE;
-
+display_state_t current_state = DISPLAY_NONE;
 void display_setstate(display_state_t state)
 {
-    DEBUG_PRINTF("Display state: %d, prev state: %d\n", state, prev_display_state);
-    if (state == prev_display_state) // no change in state
+    DEBUG_PRINTF("Display state: %d, prev state: %d\n", state, current_state);
+    if (state == current_state) // no change in state
         return;
-    prev_display_state = state;
+    current_state = state;
     switch (state)
     {
     case DISPLAY_ANIMATION:
@@ -231,12 +257,11 @@ void display_setstate(display_state_t state)
         break;
     case DISPLAY_PLAYING:
         display_owner = OWNER_PLAYING;
-        animation_should_terminate = true;
         xTaskCreate(task_playing, "task_playing", 2048, NULL, 1, NULL);
         break;
-    case DISPLAY_AMPOFF:
-        display_owner = OWNER_MAIN;
-        render_centered_text_2x("AMP OFF");
+    case DISPLAY_NONE:
+        display_owner = OWNER_NONE;
+        render_centered_text_2x("ERROR"); // we should never get to this state. If only this was rust, we would know.
         break;
     }
 }
@@ -245,6 +270,15 @@ void display_animation_setstate(animation_state_t state)
 {
     DEBUG_PRINTF("Animation state: %d\n", state);
     animation_state = state;
+}
+
+void on_media_enabled_changed(bool enabled)
+{
+    DEBUG_PRINTF("media_enabled set to : %d\n", enabled);
+    if (current_state == DISPLAY_PLAYING) // Need a special case for playing state as its framerate is not fast enough to have a responsive feedback
+    {
+        render_play_state();
+    }
 }
 
 void setup_display()
@@ -260,4 +294,5 @@ void setup_display()
     {
         DEBUG_PRINTLN(F("SSD1306 allocation failed"));
     }
+    media_enabled.addListener(on_media_enabled_changed);
 }

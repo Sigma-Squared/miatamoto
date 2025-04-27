@@ -42,8 +42,7 @@ void setup_buttons()
     attachInterrupt(digitalPinToInterrupt(BUTTON_PINS[BTN_MISC]), isr_misc, FALLING);
     pinMode(MEDIA_ENABLED_PIN_BAR, OUTPUT);
     pinMode(LIGHTS_ENABLED_PIN, OUTPUT);
-    digitalWrite(MEDIA_ENABLED_PIN_BAR, !media_enabled);
-    // analogWrite(LIGHTS_ENABLED_PIN, lights_enabled ? LIGHT_BRIGHTNESS : 0);
+    digitalWrite(MEDIA_ENABLED_PIN_BAR, !media_enabled.get());
     ledcSetup(0, 1000, 8);
     ledcAttachPin(LIGHTS_ENABLED_PIN, 0);
 }
@@ -86,15 +85,12 @@ void button_loop()
             DEBUG_PRINTLN("Next button pressed");
             break;
         case BTN_ON_OFF:
-            media_enabled = !media_enabled;
-            digitalWrite(MEDIA_ENABLED_PIN_BAR, !media_enabled);
-            if (!media_enabled)
-                display_setstate(DISPLAY_AMPOFF);
+            media_enabled.set(!media_enabled.get());
+            digitalWrite(MEDIA_ENABLED_PIN_BAR, !media_enabled.get());
             DEBUG_PRINTLN("On/Off button pressed");
             break;
         case BTN_MISC:
             lights_enabled = !lights_enabled;
-            // analogWrite(LIGHTS_ENABLED_PIN, lights_enabled ? LIGHT_BRIGHTNESS : 0);
             ledcWrite(0, lights_enabled ? LIGHT_BRIGHTNESS : 0);
             DEBUG_PRINTLN("Light button pressed");
             break;

@@ -6,7 +6,6 @@ enum display_state_t
     DISPLAY_NONE,
     DISPLAY_ANIMATION,
     DISPLAY_PLAYING,
-    DISPLAY_AMPOFF
 };
 enum animation_state_t
 {

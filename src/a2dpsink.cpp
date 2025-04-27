@@ -112,9 +112,7 @@ void setup_a2dpsink()
                                        { DEBUG_PRINTF("Sample rate: %d\n", rate); });
 #endif
     a2dp_sink.set_auto_reconnect(true, 10);
-    char bt_name[13] = {0};
-    sprintf(bt_name, "miatamoto %02x", esp_mac[5]);
-    a2dp_sink.start(bt_name, true);
+    a2dp_sink.start("miatamoto", true);
     a2dp_sink.set_volume(127);
     a2dp_sink.set_avrc_metadata_attribute_mask(ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | (ENABLE_PROGRESS_BAR ? ESP_AVRC_MD_ATTR_PLAYING_TIME : 0));
     a2dp_sink.set_avrc_metadata_callback(avrc_metadata_callback);

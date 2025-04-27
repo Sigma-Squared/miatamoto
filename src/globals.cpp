@@ -2,8 +2,8 @@
 
 #include <globals.h>
 
-bool media_enabled = true;
-bool media_paused = true;
+Observable<bool> media_enabled = Observable<bool>(true);
+bool media_paused = false;
 uint8_t esp_mac[6] = {0};
 
 uint8_t global_marquee_clock = 0;
